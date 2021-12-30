@@ -1,0 +1,60 @@
+{
+  "rules": [
+    {
+      "rule-type": "transformation",
+      "rule-id": "1",
+      "rule-name": "1",
+      "rule-target": "schema",
+      "object-locator": {
+        "schema-name": "%"
+      },
+      "rule-action": "convert-lowercase"
+    },
+    {
+      "rule-type": "transformation",
+      "rule-id": "2",
+      "rule-name": "2",
+      "rule-target": "table",
+      "object-locator": {
+        "schema-name": "%",
+        "table-name": "%"
+      },
+      "rule-action": "convert-lowercase"
+    },
+    {
+      "rule-type": "transformation",
+      "rule-id": "3",
+      "rule-name": "3",
+      "rule-target": "column",
+      "object-locator": {
+        "schema-name": "%",
+        "table-name": "%",
+        "column-name": "%"
+      },
+      "rule-action": "convert-lowercase"
+    },
+    {
+      "rule-type": "selection",
+      "rule-id": "4",
+      "rule-name": "4",
+      "object-locator": {
+        "schema-name": "SPORTS",
+        "table-name": "TEST_TBL_1_MVW",
+        "table-type": "table"
+      },
+      "rule-action": "include"
+    },
+    {
+      "rule-type": "transformation",
+      "rule-id": "5",
+      "rule-name": "5",
+      "rule-action": "rename",
+      "rule-target": "table",
+      "object-locator": {
+        "schema-name": "SPORTS",
+        "table-name": "TEST_TBL_1_MVW"
+      },
+      "value": "test_tbl_1"
+    }
+  ]
+}

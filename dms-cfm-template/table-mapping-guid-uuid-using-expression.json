@@ -1,0 +1,64 @@
+{
+    "rules": [
+        {
+            "rule-type": "selection",
+            "rule-id": "1",
+            "rule-name": "1",
+            "object-locator": {
+                "schema-name": "SPORTS",
+                "table-name": "TEST_TBL_2"
+            },
+            "rule-action": "include"
+        },
+        {
+            "rule-type": "transformation",
+            "rule-id": "2",
+            "rule-name": "2",
+            "rule-action": "add-column",
+            "rule-target": "column",
+            "object-locator": {
+                "schema-name": "SPORTS",
+                "table-name": "TEST_TBL_2"
+            },
+            "value": "t_col2_tmp",
+            "expression": "CASE LOWER(SUBSTR(HEX($T_COL2), 1, 8) || '-' || SUBSTR(HEX($T_COL2), 9, 4) || '-' || SUBSTR(HEX($T_COL2), 13, 4) || '-' || SUBSTR(HEX($T_COL2), 17, 4) || '-' || SUBSTR(HEX($T_COL2), 21, 12)) WHEN '----' THEN NULL ELSE LOWER(SUBSTR(HEX($T_COL2), 1, 8) || '-' || SUBSTR(HEX($T_COL2), 9, 4) || '-' || SUBSTR(HEX($T_COL2), 13, 4) || '-' || SUBSTR(HEX($T_COL2), 17, 4) || '-' || SUBSTR(HEX($T_COL2), 21, 12)) END",
+            "data-type": {
+                "type": "string",
+                "length": 60
+            }
+        },
+        {
+            "rule-type": "transformation",
+            "rule-id": "3",
+            "rule-name": "3",
+            "rule-target": "schema",
+            "object-locator": {
+                "schema-name": "%"
+            },
+            "rule-action": "convert-lowercase"
+        },
+        {
+            "rule-type": "transformation",
+            "rule-id": "4",
+            "rule-name": "4",
+            "rule-target": "table",
+            "object-locator": {
+                "schema-name": "%",
+                "table-name": "%"
+            },
+            "rule-action": "convert-lowercase"
+        },
+        {
+            "rule-type": "transformation",
+            "rule-id": "5",
+            "rule-name": "5",
+            "rule-target": "column",
+            "object-locator": {
+                "schema-name": "%",
+                "table-name": "%",
+                "column-name": "%"
+            },
+            "rule-action": "convert-lowercase"
+        }
+    ]
+}

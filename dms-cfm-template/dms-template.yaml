@@ -1,0 +1,1204 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: CloudFormation template that will deploy all AWS resources for demonstrating DMS tasks with expression Oracle to PostgreSQL
+
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this
+# software and associated documentation files (the "Software"), to deal in the Software
+# without restriction, including without limitation the rights to use, copy, modify,
+# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Parameters:
+  Ec2HostKeyPair:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Name of an existing EC2 key pair to enable SSH access
+    ConstraintDescription: Must be the name of an existing EC2 KeyPair
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Description: Latest AMI ID
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+    AllowedValues:
+      - /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+  InstanceType:
+    Type: String
+    Default: t3.large
+    Description: Instance type
+    AllowedValues:
+    - t3.small
+    - t3.medium
+    - t3.large
+    - r5.large
+    - r5.xlarge
+    - r5.2xlarge
+    - r5.4xlarge
+  OracleDBVersion:
+    Type: String
+    Description: Database engine version
+    AllowedValues:
+    - '19.0.0.0.ru-2019-07.rur-2019-07.r1' # aws rds describe-db-engine-versions --engine postgres --query 'DBEngineVersions[].EngineVersion'
+    - '19.0.0.0.ru-2019-10.rur-2019-10.r1'
+    - '19.0.0.0.ru-2020-01.rur-2020-01.r1'
+    - '19.0.0.0.ru-2020-04.rur-2020-04.r1'
+    - '19.0.0.0.ru-2020-07.rur-2020-07.r1'
+    - '19.0.0.0.ru-2020-10.rur-2020-10.r1'
+    - '19.0.0.0.ru-2021-01.rur-2021-01.r1'
+    - '19.0.0.0.ru-2021-01.rur-2021-01.r2'
+    - '19.0.0.0.ru-2021-04.rur-2021-04.r1'
+    - '19.0.0.0.ru-2021-07.rur-2021-07.r1'
+    Default: 19.0.0.0.ru-2021-07.rur-2021-07.r1
+  PostgreSQLDBVersion:
+    Type: String
+    Description: Database engine version
+    AllowedValues:
+    - '12.2' # aws rds describe-db-engine-versions --engine postgres --query 'DBEngineVersions[].EngineVersion'
+    - '12.3'
+    - '12.4'
+    - '12.5'
+    - '12.6'
+    - '12.7'
+    - '12.8'
+    - '13.1'
+    - '13.2'
+    - '13.3'
+    - '13.4'    
+    Default: 13.4   
+  DmsEngineVersion:
+    Type: String
+    Description: Dms engine version
+    AllowedValues:
+    - '3.4.3'
+    - '3.4.5'
+    - '3.4.6'
+    Default: 3.4.6  
+  VpcCidr:
+    Description: VPC IP range
+    Type: String
+    Default: 10.63.0.0/16
+  PublicSubnetACidr:
+    Description: Public subnet A IP range
+    Type: String
+    Default: 10.63.0.0/24
+  PublicSubnetBCidr:
+    Description: Public subnet B IP range
+    Type: String
+    Default: 10.63.1.0/24
+  PrivateSubnetACidr:
+    Description: Private subnet A IP range
+    Type: String
+    Default: 10.63.2.0/24
+  PrivateSubnetBCidr:
+    Description: Private subnet B IP range
+    Type: String
+    Default: 10.63.3.0/24
+  DatabaseName:
+    Default: sportdb
+    Description: Database name
+    Type: String
+    MinLength: 1
+    MaxLength: 8
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters.
+  DBUser:
+    NoEcho: false
+    Default: sports
+    Description: Database admin username
+    Type: String
+    MinLength: 1
+    MaxLength: 16
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters.
+  DBPassword:
+    NoEcho: true
+    Description: Database admin password
+    Type: String
+    MinLength: 1
+    MaxLength: 41
+  DBAllocatedStorage:
+    Default: 10
+    Description: Size of the database (Gb)
+    Type: Number
+    MinValue: 5
+    MaxValue: 1024
+    ConstraintDescription: Must be between 5 and 1024Gb.
+  DBInstanceClass:
+    Description: Database instance type
+    Type: String
+    Default: db.t3.large
+    AllowedValues:
+     - db.t3.small
+     - db.t3.medium
+     - db.t3.large
+     - db.r5.large
+     - db.r5.xlarge
+     - db.r5.2xlarge
+     - db.r5.4xlarge
+     - db.r5.8xlarge
+    ConstraintDescription: Must select a valid database instance type.
+  DmsInstanceClass:
+    Description: Database instance type
+    Type: String
+    Default: dms.t3.large
+    AllowedValues:
+     - dms.t3.small
+     - dms.t3.medium
+     - dms.t3.large
+     - dms.c5.large
+     - dms.c5.xlarge
+     - dms.c5.2xlarge
+     - dms.c5.4xlarge
+     - dms.c5.9xlarge
+     - dms.r5.large
+     - dms.r5.xlarge
+     - dms.r5.2xlarge
+     - dms.r5.4xlarge
+     - dms.r5.8xlarge
+    ConstraintDescription: Must select a valid database instance type.
+  MultiAZ:
+    Description: Multi-AZ master database
+    Type: String
+    Default: false
+    AllowedValues:
+     - true
+     - false
+    ConstraintDescription: Must be true or false.
+  OracleClientUrl:
+    Description: URL for downloading Oracle client tools
+    Type: String
+    Default: https://download.oracle.com/otn_software/linux/instantclient/211000/oracle-instantclient-basic-21.1.0.0.0-1.x86_64.rpm
+  SqlPlusUrl:
+    Description: URL for downloading SQLPlus client tools
+    Type: String
+    Default: https://download.oracle.com/otn_software/linux/instantclient/211000/oracle-instantclient-sqlplus-21.1.0.0.0-1.x86_64.rpm
+  DmsReplicationInstanceIdentifier:
+    NoEcho: false
+    Default: sports-rep-instance
+    Description: The identifier for the replication instance. Given a unique ID if none is provided.
+    Type: String
+    AllowedPattern: "([a-z][a-z0-9]*(-[a-z0-9]+)*|)"
+  DmsSourceEndpointEngineName:
+    NoEcho: false
+    Default: oracle
+    Description: The type of engine this source endpoint is connected to # in this example it is oracle
+    Type: String
+    AllowedValues:
+     - 'aurora'
+     - 'aurora-postgresql'
+     - 'azuredb'
+     - 'db2'
+     - 'mariadb'
+     - 'mongodb'
+     - 'docdb'
+     - 'mysql'
+     - 'oracle'
+     - 'postgres'
+     - 's3'
+     - 'sqlserver'
+     - 'sybase'
+  DmsTargetEndpointEngineName:
+    NoEcho: false
+    Default: postgres
+    Description: The type of engine this target endpoint is connected to # in this example it is postgres
+    Type: String
+    AllowedValues:
+     - 'aurora'
+     - 'aurora-postgresql'
+     - 'db2'
+     - 'mariadb'
+     - 'mongodb'
+     - 'mysql'
+     - 'oracle'
+     - 'postgres'
+     - 's3'
+     - 'sqlserver'
+     - 'sybase'
+     - 'kafka'
+     - 'redshift'
+     - 'kinesis'
+     - 'neptune'
+     - 'opensearch'
+  DmsSourceEndpointIdentifier:
+    NoEcho: false
+    Default: oracle-sportsdb-src
+    Description: The identifier to be used Oracle source endpoint
+    Type: String
+    AllowedPattern: "^$|(?!.*--)[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9]$"
+    ConstraintDescription: It must begin with a letter, must contain only ASCII letters, digits and hyphens and must not end with a hyphen or contain two consecutive hyphens.
+  DmsTargetEndpointIdentifier:
+    NoEcho: false
+    Default: postgres-sportsdb-tgt
+    Description: The identifier to be used PostgreSQL source endpoint
+    Type: String
+    AllowedPattern: "^$|(?!.*--)[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9]$"
+    ConstraintDescription: It must begin with a letter, must contain only ASCII letters, digits and hyphens and must not end with a hyphen or contain two consecutive hyphens.
+  DmsAllocatedStorage:
+    NoEcho: false
+    Default: 50
+    Description: The amount of storage, in gigabytes, to be initially allocated for the replication instance.
+    Type: Number
+    MinValue: 5
+    MaxValue: 6144
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: RDS Configuration
+        Parameters:
+          - DatabaseName
+          - DBUser
+          - DBPassword
+          - DBAllocatedStorage
+          - DBInstanceClass
+          - MultiAZ
+      - Label:
+          default: EC2 Configuration
+        Parameters:
+          - AmiId
+          - InstanceType
+          - OracleDBVersion
+          - PostgreSQLDBVersion
+          - Ec2HostKeyPair
+      - Label:
+          default: VPC Configuration
+        Parameters:
+          - VpcCidr
+          - PublicSubnetACidr
+          - PublicSubnetBCidr
+          - PrivateSubnetACidr
+          - PrivateSubnetBCidr
+      - Label:
+          default: Oracle downloads
+        Parameters:
+          - OracleClientUrl
+          - SqlPlusUrl
+      - Label:
+          default: DMS Configuration
+        Parameters:
+          - DmsReplicationInstanceIdentifier
+          - DmsSourceEndpointIdentifier
+          - DmsTargetEndpointIdentifier
+          - DmsSourceEndpointEngineName
+          - DmsTargetEndpointEngineName
+          - DmsAllocatedStorage
+Resources:
+  # Network resources
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      CidrBlock: !Ref VpcCidr
+      Tags:
+      - Key: Name
+        Value: !Sub '${AWS::StackName} - VPC'
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub '${AWS::StackName} - internet gateway'
+  VpcGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+  SubnetAPublic:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Ref PublicSubnetACidr
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Sub '${AWS::StackName} - public subnet a'
+      - Key: Reach
+        Value: public
+  SubnetAPrivate:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Ref PrivateSubnetACidr
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Sub '${AWS::StackName} - private subnet a'
+      - Key: Reach
+        Value: private
+  SubnetBPublic:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Ref PublicSubnetBCidr
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Sub '${AWS::StackName} - public subnet b'
+      - Key: Reach
+        Value: public
+  SubnetBPrivate:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Ref PrivateSubnetBCidr
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Sub '${AWS::StackName} - private subnet b'
+      - Key: Reach
+        Value: private
+  RouteTableAPublic: 
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Sub '${AWS::StackName} - public route table a'
+  RouteTableAPrivate: 
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Sub '${AWS::StackName} - private route table a'
+  RouteTableBPublic:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Sub '${AWS::StackName} - public route table b'
+  RouteTableBPrivate:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+      - Key: Name
+        Value: !Sub '${AWS::StackName} - private route table b'
+  RouteTableAssociationAPublic:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetAPublic
+      RouteTableId: !Ref RouteTableAPublic
+  RouteTableAssociationAPrivate:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetAPrivate
+      RouteTableId: !Ref RouteTableAPrivate
+  RouteTableAssociationBPublic:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetBPublic
+      RouteTableId: !Ref RouteTableBPublic
+  RouteTableAssociationBPrivate:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetBPrivate
+      RouteTableId: !Ref RouteTableBPrivate
+  RouteTableAPublicInternetRoute: 
+    Type: AWS::EC2::Route
+    DependsOn: VpcGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTableAPublic
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  RouteTableBPublicInternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VpcGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTableBPublic
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  NatGatewayEip:
+    Type: AWS::EC2::EIP
+    DependsOn: VpcGatewayAttachment
+    Properties:
+      Domain: vpc
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayEip.AllocationId
+      SubnetId: !Ref SubnetAPublic
+  RouteANAT:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref RouteTableAPrivate
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+  RouteBNAT:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref RouteTableBPrivate
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+  SecurityGroupDefault: 
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub '${AWS::StackName} - ec2 security group'
+      VpcId: !Ref Vpc
+      SecurityGroupEgress:
+      - IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+      - IpProtocol: -1
+        CidrIp: !Ref VpcCidr      
+        FromPort: 0
+        ToPort: 65535
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        CidrIp: 0.0.0.0/0 # Change with your IP address (example ##.##.##.##/32) https://whatismyipaddress.com/
+        FromPort: 22
+        ToPort: 22
+  SecurityGroupDatabase: 
+    Type: AWS::EC2::SecurityGroup
+    DependsOn: SecurityGroupDefault
+    Properties:
+      GroupDescription: !Sub '${AWS::StackName} - oracle and postgresql access security group'
+      VpcId: !Ref Vpc
+      SecurityGroupEgress:
+      - IpProtocol: -1
+        CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        CidrIp: !Ref VpcCidr   
+        FromPort: 0
+        ToPort: 65535  
+        # SourceSecurityGroupId: !GetAtt SecurityGroupDefault.GroupId
+  # Compute resources
+  Ec2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles: [ !Ref Ec2InstanceRole ]
+  Ec2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [ ec2.amazonaws.com ]
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: Ec2InstanceRolePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                - logs:CreateLogStream
+                - logs:CreateLogGroup
+                - logs:PutLogEvents
+                - logs:DescribeLogGroups
+                - logs:DescribeLogStreams
+                - logs:FilterLogEvents
+                - logs:GetLogEvents
+                Resource:
+                - arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                - rds:Create*
+                - rds:Describe*
+                - rds:Modify*
+                - rds:Restore*
+                - rds:PromoteReadReplica
+                - rds:RebootDBInstance
+                - rds:StartDBInstance
+                - rds:StopDBInstance
+                Resource:
+                - !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:db:${RdsOracle}'
+                - !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:db:${RdsPostgreSQL}'
+              - Effect: Allow
+                Action: 
+                - dms:Create*
+                - dms:Delete*
+                - dms:Describe*
+                - dms:Modify*
+                - dms:Start*
+                - dms:Stop*
+                - dms:RebootReplicationInstance
+                - dms:RefreshSchemas
+                - dms:TestConnection
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                - ec2:DescribeVpcs
+                - ec2:DescribeInternetGateways
+                - ec2:DescribeAvailabilityZones
+                - ec2:DescribeSubnets
+                - ec2:DescribeSecurityGroups
+                - ec2:ModifyNetworkInterfaceAttribute
+                - ec2:CreateNetworkInterface
+                - ec2:DeleteNetworkInterface
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                - cloudwatch:Get*
+                - cloudwatch:List*
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                - cloudformation:CreateStack
+                - cloudformation:DescribeStacks
+                - cloudformation:DescribeStackEvents
+                - cloudformation:DescribeStackResources
+                - cloudformation:GetTemplate
+                - cloudformation:ValidateTemplate
+                - cloudformation:DeleteStack
+                - cloudformation:UpdateStack
+                - cloudformation:CreateChangeSet
+                Resource: '*'
+  Ec2ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref Ec2Client
+  Ec2Client:
+    Type: AWS::EC2::Instance
+    DependsOn: 
+      - NatGateway
+      - SubnetAPublic
+      - SubnetBPublic
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref Ec2InstanceProfile
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          GroupSet:
+            - !Ref SecurityGroupDefault
+          SubnetId: !Ref SubnetAPublic
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 100
+            VolumeType: gp2
+      KeyName: !Ref Ec2HostKeyPair  
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum upgrade -y
+          yum install -y autoconf automake gcc git jq pip iperf python-pip
+          yum clean all
+          rm -rf /var/cache/yum
+          pip3 install awscli
+          pip3 install boto3
+          amazon-linux-extras install -y epel
+          amazon-linux-extras enable epel
+          yum clean metadata
+          yum install -y epel-release
+          amazon-linux-extras enable postgresql13
+          yum clean metadata
+          yum install -y postgresql  
+          echo "\set PROMPT1 '%[%033[1;32m%]%/=> %[%033[0m%]%'" >> /home/ec2-user/.psqlrc
+          echo "export MYSQL_PS1=\"\$(echo -e '\033[1;32mmysql> \033[0m')"\" >> /home/ec2-user/.bash_profile
+          chown -R ec2-user:ec2-user /home/ec2-user/.psqlrc
+          yum install -y https://dev.mysql.com/get/mysql80-community-release-el7-3.noarch.rpm
+          yum install -y mysql-community-client
+          echo 'export PS1="\[\[\e[m\][\[\e[01;32m\]\u\[\e[m\]]:[\[\e[01;93m\]\w\[\e[m\]]> "' >> /home/ec2-user/.bash_profile
+          echo 'alias ora-src="sqlplus ${DBUser}@${RdsOracle.Endpoint.Address}:${RdsOracle.Endpoint.Port}/${DatabaseName}"' >> /home/ec2-user/.bash_profile
+          echo 'alias pgs-tgt="psql -h ${RdsPostgreSQL.Endpoint.Address} -p ${RdsPostgreSQL.Endpoint.Port} -U ${DBUser} -d ${DatabaseName}"' >> /home/ec2-user/.bash_profile
+          echo "export AWS_REGION=${AWS::Region}" >> /home/ec2-user/.bash_profile
+          echo "export CFSTACK_NAME=${AWS::StackName}" >> /home/ec2-user/.bash_profile
+          echo "export SOURCE_RDS_ID=${RdsOracle}" >> /home/ec2-user/.bash_profile
+          echo "export SOURCE_HOST=${RdsOracle.Endpoint.Address}" >> /home/ec2-user/.bash_profile
+          echo "export SOURCE_PORT=${RdsOracle.Endpoint.Port}" >> /home/ec2-user/.bash_profile
+          echo "export TARGET_RDS_ID=${RdsPostgreSQL}" >> /home/ec2-user/.bash_profile
+          echo "export TARGET_HOST=${RdsPostgreSQL.Endpoint.Address}" >> /home/ec2-user/.bash_profile
+          echo "export TARGET_PORT=${RdsPostgreSQL.Endpoint.Port}" >> /home/ec2-user/.bash_profile
+          echo "export DBNAME=${DatabaseName}" >> /home/ec2-user/.bash_profile
+          echo "export DMS_SG=${SecurityGroupDefault.GroupId}" >> /home/ec2-user/.bash_profile
+          echo "export RDS_SG=${SecurityGroupDatabase.GroupId}" >> /home/ec2-user/.bash_profile
+          echo "export SUBNET_A=${SubnetAPublic}" >> /home/ec2-user/.bash_profile
+          echo "export SUBNET_B=${SubnetBPublic}" >> /home/ec2-user/.bash_profile
+          rm -rf /tmp/*
+          curl ${OracleClientUrl} --output /tmp/instant-client.rpm
+          rpm -ivh /tmp/instant-client.rpm
+          curl ${SqlPlusUrl} --output /tmp/instant-client-sqlplus.rpm
+          rpm -ivh /tmp/instant-client-sqlplus.rpm
+          yum update -y
+          reboot
+      Tags:
+      - Key: Name
+        Value: !Sub '${AWS::StackName} - ec2 instance'
+
+  # Database resources
+  RdsOracle:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: !Ref DatabaseName
+      DBInstanceIdentifier: !Sub '${AWS::StackName}-ora-instance'
+      AllocatedStorage: !Ref DBAllocatedStorage
+      StorageType: gp2
+      StorageEncrypted: true
+      PubliclyAccessible: false
+      DBInstanceClass: !Ref DBInstanceClass
+      Engine : oracle-ee
+      EngineVersion: !Ref OracleDBVersion
+      LicenseModel : bring-your-own-license      
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPassword
+      DeletionProtection: false
+      MultiAZ: !Ref MultiAZ
+      DBSubnetGroupName: !Ref RdsSubnetGroup
+      Tags:
+      - Key: Name
+        Value: !Sub '${AWS::StackName} - oracle db instance'
+      VPCSecurityGroups: 
+      - !GetAtt SecurityGroupDatabase.GroupId
+    DeletionPolicy: Snapshot
+  RdsPostgreSQL:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: !Ref DatabaseName
+      DBInstanceIdentifier: !Sub '${AWS::StackName}-pgs-instance'
+      AllocatedStorage: !Ref DBAllocatedStorage
+      StorageType: gp2
+      StorageEncrypted: true
+      PubliclyAccessible: false
+      DBInstanceClass: !Ref DBInstanceClass
+      EnableCloudwatchLogsExports:
+        - postgresql
+        - upgrade
+      Engine : postgres
+      EngineVersion: !Ref PostgreSQLDBVersion
+      LicenseModel : postgresql-license   
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPassword
+      DeletionProtection: false
+      MultiAZ: !Ref MultiAZ
+      DBSubnetGroupName: !Ref RdsSubnetGroup
+      Tags:
+      - Key: Name
+        Value: !Sub '${AWS::StackName} - postgresql db instance'
+      VPCSecurityGroups: 
+      - !GetAtt SecurityGroupDatabase.GroupId
+    DeletionPolicy: Snapshot    
+  RdsSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Sub '${AWS::StackName} - db subnet group'
+      SubnetIds:
+      - !Ref SubnetAPrivate
+      - !Ref SubnetBPrivate
+
+  # DMS resources
+  DmsCloudWatchLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-dms-cloudwatch-logs-role'
+      AssumeRolePolicyDocument:
+        Version : 2012-10-17
+        Statement :
+          -
+            Effect : Allow
+            Principal :
+              Service :
+                - dms.amazonaws.com
+            Action :
+              - sts:AssumeRole
+      Path : /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonDMSCloudWatchLogsRole
+  DmsVpcRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-dms-vpc-role'
+      AssumeRolePolicyDocument:
+        Version : 2012-10-17
+        Statement :
+          -
+            Effect : Allow
+            Principal :
+              Service :
+                - dms.amazonaws.com
+            Action :
+              - sts:AssumeRole
+      Path : /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonDMSVPCManagementRole
+  ReplicationSubnetGroup:
+    Type: 'AWS::DMS::ReplicationSubnetGroup'
+    DependsOn: DmsVpcRole
+    Properties:
+      ReplicationSubnetGroupDescription: !Sub '${AWS::StackName} - dms subnet group'
+      SubnetIds:
+        - !Ref SubnetAPrivate
+        - !Ref SubnetBPrivate 
+  ReplicationInstance:
+    Type: 'AWS::DMS::ReplicationInstance'
+    DependsOn: DmsVpcRole
+    Properties:
+      ReplicationInstanceClass: !Ref DmsInstanceClass
+      ReplicationSubnetGroupIdentifier: !Ref ReplicationSubnetGroup
+      AllocatedStorage: !Ref DmsAllocatedStorage
+      EngineVersion: !Ref DmsEngineVersion
+      MultiAZ: !Ref MultiAZ
+      PubliclyAccessible: false
+      ReplicationInstanceIdentifier: !Ref DmsReplicationInstanceIdentifier
+      VpcSecurityGroupIds:
+        - !GetAtt SecurityGroupDatabase.GroupId
+  OracleSourceEndpoint:
+    Type: 'AWS::DMS::Endpoint'
+    Properties:
+      DatabaseName: !Ref DatabaseName
+      EndpointIdentifier: !Ref DmsSourceEndpointIdentifier
+      EndpointType: source
+      EngineName: !Ref DmsSourceEndpointEngineName
+      ExtraConnectionAttributes: useLogMinerReader=N;useBfile=Y;numberDataTypeScale=-2
+      Port: !Sub '${RdsOracle.Endpoint.Port}'
+      ServerName: !Sub '${RdsOracle.Endpoint.Address}'
+      SslMode: none
+      Username: !Ref DBUser
+      Password: !Ref DBPassword
+  PostgreSQLTargetEndpoint:
+    Type: 'AWS::DMS::Endpoint'
+    Properties:
+      DatabaseName: !Ref DatabaseName
+      EndpointIdentifier: !Ref DmsTargetEndpointIdentifier
+      EndpointType: target
+      EngineName: !Ref DmsTargetEndpointEngineName
+      ExtraConnectionAttributes: maxFileSize=1048576;truncateTrailingZerosForPlainNumeric=true;mapUnboundedNumericAsString=true
+      Port: !Sub '${RdsPostgreSQL.Endpoint.Port}'
+      ServerName: !Sub '${RdsPostgreSQL.Endpoint.Address}'
+      SslMode: require
+      Username: !Ref DBUser
+      Password: !Ref DBPassword
+  ReplicationSubnetGroup:
+    Type: 'AWS::DMS::ReplicationSubnetGroup'
+    DependsOn: DmsVpcRole
+    Properties:
+      ReplicationSubnetGroupDescription: !Sub '${AWS::StackName} - dms subnet group'
+      SubnetIds:
+        - !Ref SubnetAPrivate
+        - !Ref SubnetBPrivate
+  # DMS task for Oracle GUID to PostgreSQL UUID using Materilized View example      
+  MigrationTaskGuid2UuidUsingViews:
+    Type: 'AWS::DMS::ReplicationTask'
+    Properties:
+      MigrationType: full-load-and-cdc
+      ReplicationInstanceArn: !Ref ReplicationInstance
+      ReplicationTaskIdentifier: 'sports-ora2pgs-guid-uuid-using-mviews'
+      ReplicationTaskSettings: >-
+       {
+           "Logging": {
+               "EnableLogging": true,
+               "LogComponents": [
+                   {
+                       "Severity": "LOGGER_SEVERITY_DEFAULT",
+                       "Id": "SOURCE_UNLOAD"
+                   },
+                   {
+                       "Severity": "LOGGER_SEVERITY_DEFAULT",
+                       "Id": "TARGET_LOAD"
+                   },
+                   {
+                       "Severity": "LOGGER_SEVERITY_DEFAULT",
+                       "Id": "SOURCE_CAPTURE"
+                   },
+                   {
+                       "Severity": "LOGGER_SEVERITY_DEFAULT",
+                       "Id": "TARGET_APPLY"
+                   }
+               ]
+           },
+           "StreamBufferSettings": {
+               "StreamBufferCount": 3,
+               "CtrlStreamBufferSizeInMB": 5,
+               "StreamBufferSizeInMB": 8
+           },
+           "ErrorBehavior": {
+               "FailOnNoTablesCaptured": true,
+               "ApplyErrorUpdatePolicy": "LOG_ERROR",
+               "FailOnTransactionConsistencyBreached": false,
+               "RecoverableErrorThrottlingMax": 1800,
+               "DataErrorEscalationPolicy": "SUSPEND_TABLE",
+               "ApplyErrorEscalationCount": 0,
+               "RecoverableErrorStopRetryAfterThrottlingMax": true,
+               "RecoverableErrorThrottling": true,
+               "ApplyErrorFailOnTruncationDdl": false,
+               "DataTruncationErrorPolicy": "LOG_ERROR",
+               "ApplyErrorInsertPolicy": "LOG_ERROR",
+               "ApplyErrorEscalationPolicy": "LOG_ERROR",
+               "RecoverableErrorCount": -1,
+               "DataErrorEscalationCount": 0,
+               "TableErrorEscalationPolicy": "STOP_TASK",
+               "RecoverableErrorInterval": 5,
+               "ApplyErrorDeletePolicy": "LOG_ERROR",
+               "TableErrorEscalationCount": 0,
+               "FullLoadIgnoreConflicts": true,
+               "DataErrorPolicy": "LOG_ERROR",
+               "TableErrorPolicy": "SUSPEND_TABLE"
+           },
+           "ValidationSettings": {
+               "ValidationPartialLobSize": 0,
+               "PartitionSize": 10000,
+               "RecordFailureDelayLimitInMinutes": 0,
+               "SkipLobColumns": false,
+               "FailureMaxCount": 10000,
+               "HandleCollationDiff": false,
+               "ValidationQueryCdcDelaySeconds": 0,
+               "ValidationMode": "ROW_LEVEL",
+               "TableFailureMaxCount": 1000,
+               "RecordFailureDelayInMinutes": 5,
+               "MaxKeyColumnSize": 8096,
+               "EnableValidation": true,
+               "ThreadCount": 5,
+               "RecordSuspendDelayInMinutes": 30,
+               "ValidationOnly": false
+           },
+           "FullLoadSettings": {
+               "CommitRate": 10000,
+               "StopTaskCachedChangesApplied": false,
+               "StopTaskCachedChangesNotApplied": false,
+               "MaxFullLoadSubTasks": 8,
+               "TransactionConsistencyTimeout": 600,
+               "CreatePkAfterFullLoad": false,
+               "TargetTablePrepMode": "TRUNCATE_BEFORE_LOAD"
+           },
+           "TargetMetadata": {
+               "ParallelApplyBufferSize": 0,
+               "ParallelApplyQueuesPerThread": 0,
+               "ParallelApplyThreads": 0,
+               "TargetSchema": "",
+               "InlineLobMaxSize": 0,
+               "ParallelLoadQueuesPerThread": 0,
+               "SupportLobs": true,
+               "LobChunkSize": 0,
+               "TaskRecoveryTableEnabled": true,
+               "ParallelLoadThreads": 0,
+               "LobMaxSize": 32,
+               "BatchApplyEnabled": false,
+               "FullLobMode": false,
+               "LimitedSizeLobMode": true,
+               "LoadMaxFileSize": 0,
+               "ParallelLoadBufferSize": 0
+           },
+           "BeforeImageSettings": null,
+           "ControlTablesSettings": {
+               "historyTimeslotInMinutes": 5,
+               "HistoryTimeslotInMinutes": 5,
+               "StatusTableEnabled": true,
+               "SuspendedTablesTableEnabled": true,
+               "HistoryTableEnabled": true,
+               "ControlSchema": "sports",
+               "FullLoadExceptionTableEnabled": false
+           },
+           "LoopbackPreventionSettings": null,
+           "CharacterSetSettings": null,
+           "FailTaskWhenCleanTaskResourceFailed": false,
+           "ChangeProcessingTuning": {
+               "StatementCacheSize": 50,
+               "CommitTimeout": 1,
+               "BatchApplyPreserveTransaction": true,
+               "BatchApplyTimeoutMin": 1,
+               "BatchSplitSize": 0,
+               "BatchApplyTimeoutMax": 30,
+               "MinTransactionSize": 1000,
+               "MemoryKeepTime": 60,
+               "BatchApplyMemoryLimit": 500,
+               "MemoryLimitTotal": 1024
+           },
+           "ChangeProcessingDdlHandlingPolicy": {
+               "HandleSourceTableDropped": true,
+               "HandleSourceTableTruncated": true,
+               "HandleSourceTableAltered": true
+           }
+       }
+      SourceEndpointArn: !Ref OracleSourceEndpoint
+      TargetEndpointArn: !Ref PostgreSQLTargetEndpoint
+      TableMappings: >-
+       {
+         "rules": [
+           {
+             "rule-type": "transformation",
+             "rule-id": "1",
+             "rule-name": "1",
+             "rule-target": "schema",
+             "object-locator": {
+               "schema-name": "%"
+             },
+             "rule-action": "convert-lowercase"
+           },
+           {
+             "rule-type": "transformation",
+             "rule-id": "2",
+             "rule-name": "2",
+             "rule-target": "table",
+             "object-locator": {
+               "schema-name": "%",
+               "table-name": "%"
+             },
+             "rule-action": "convert-lowercase"
+           },
+           {
+             "rule-type": "transformation",
+             "rule-id": "3",
+             "rule-name": "3",
+             "rule-target": "column",
+             "object-locator": {
+               "schema-name": "%",
+               "table-name": "%",
+               "column-name": "%"
+             },
+             "rule-action": "convert-lowercase"
+           },
+           {
+             "rule-type": "selection",
+             "rule-id": "4",
+             "rule-name": "4",
+             "object-locator": {
+               "schema-name": "SPORTS",
+               "table-name": "TEST_TBL_1_MVW",
+               "table-type": "table"
+             },
+             "rule-action": "include"
+           },
+           {
+             "rule-type": "transformation",
+             "rule-id": "5",
+             "rule-name": "5",
+             "rule-action": "rename",
+             "rule-target": "table",
+             "object-locator": {
+               "schema-name": "SPORTS",
+               "table-name": "TEST_TBL_1_MVW"
+             },
+             "value": "test_tbl_1"
+           }
+         ]
+       }
+  # DMS task for Oracle GUID to PostgreSQL UUID using expression in table mapping example
+  MigrationTaskGuid2UuidUsingExpression:
+    Type: 'AWS::DMS::ReplicationTask'
+    Properties:
+      MigrationType: full-load-and-cdc
+      ReplicationInstanceArn: !Ref ReplicationInstance
+      ReplicationTaskIdentifier: 'sports-ora2pgs-guid-uuid-using-expression'
+      ReplicationTaskSettings: >-
+       {
+           "Logging": {
+               "EnableLogging": true,
+               "LogComponents": [
+                   {
+                       "Severity": "LOGGER_SEVERITY_DEFAULT",
+                       "Id": "SOURCE_UNLOAD"
+                   },
+                   {
+                       "Severity": "LOGGER_SEVERITY_DEFAULT",
+                       "Id": "TARGET_LOAD"
+                   },
+                   {
+                       "Severity": "LOGGER_SEVERITY_DEFAULT",
+                       "Id": "SOURCE_CAPTURE"
+                   },
+                   {
+                       "Severity": "LOGGER_SEVERITY_DEFAULT",
+                       "Id": "TARGET_APPLY"
+                   }
+               ]
+           },
+           "StreamBufferSettings": {
+               "StreamBufferCount": 3,
+               "CtrlStreamBufferSizeInMB": 5,
+               "StreamBufferSizeInMB": 8
+           },
+           "ErrorBehavior": {
+               "FailOnNoTablesCaptured": true,
+               "ApplyErrorUpdatePolicy": "LOG_ERROR",
+               "FailOnTransactionConsistencyBreached": false,
+               "RecoverableErrorThrottlingMax": 1800,
+               "DataErrorEscalationPolicy": "SUSPEND_TABLE",
+               "ApplyErrorEscalationCount": 0,
+               "RecoverableErrorStopRetryAfterThrottlingMax": true,
+               "RecoverableErrorThrottling": true,
+               "ApplyErrorFailOnTruncationDdl": false,
+               "DataTruncationErrorPolicy": "LOG_ERROR",
+               "ApplyErrorInsertPolicy": "LOG_ERROR",
+               "ApplyErrorEscalationPolicy": "LOG_ERROR",
+               "RecoverableErrorCount": -1,
+               "DataErrorEscalationCount": 0,
+               "TableErrorEscalationPolicy": "STOP_TASK",
+               "RecoverableErrorInterval": 5,
+               "ApplyErrorDeletePolicy": "LOG_ERROR",
+               "TableErrorEscalationCount": 0,
+               "FullLoadIgnoreConflicts": true,
+               "DataErrorPolicy": "LOG_ERROR",
+               "TableErrorPolicy": "SUSPEND_TABLE"
+           },
+           "ValidationSettings": {
+               "ValidationPartialLobSize": 0,
+               "PartitionSize": 10000,
+               "RecordFailureDelayLimitInMinutes": 0,
+               "SkipLobColumns": false,
+               "FailureMaxCount": 10000,
+               "HandleCollationDiff": false,
+               "ValidationQueryCdcDelaySeconds": 0,
+               "ValidationMode": "ROW_LEVEL",
+               "TableFailureMaxCount": 1000,
+               "RecordFailureDelayInMinutes": 5,
+               "MaxKeyColumnSize": 8096,
+               "EnableValidation": true,
+               "ThreadCount": 5,
+               "RecordSuspendDelayInMinutes": 30,
+               "ValidationOnly": false
+           },
+           "FullLoadSettings": {
+               "CommitRate": 10000,
+               "StopTaskCachedChangesApplied": false,
+               "StopTaskCachedChangesNotApplied": false,
+               "MaxFullLoadSubTasks": 8,
+               "TransactionConsistencyTimeout": 600,
+               "CreatePkAfterFullLoad": false,
+               "TargetTablePrepMode": "TRUNCATE_BEFORE_LOAD"
+           },
+           "TargetMetadata": {
+               "ParallelApplyBufferSize": 0,
+               "ParallelApplyQueuesPerThread": 0,
+               "ParallelApplyThreads": 0,
+               "TargetSchema": "",
+               "InlineLobMaxSize": 0,
+               "ParallelLoadQueuesPerThread": 0,
+               "SupportLobs": true,
+               "LobChunkSize": 0,
+               "TaskRecoveryTableEnabled": true,
+               "ParallelLoadThreads": 0,
+               "LobMaxSize": 32,
+               "BatchApplyEnabled": false,
+               "FullLobMode": false,
+               "LimitedSizeLobMode": true,
+               "LoadMaxFileSize": 0,
+               "ParallelLoadBufferSize": 0
+           },
+           "BeforeImageSettings": null,
+           "ControlTablesSettings": {
+               "historyTimeslotInMinutes": 5,
+               "HistoryTimeslotInMinutes": 5,
+               "StatusTableEnabled": true,
+               "SuspendedTablesTableEnabled": true,
+               "HistoryTableEnabled": true,
+               "ControlSchema": "sports",
+               "FullLoadExceptionTableEnabled": false
+           },
+           "LoopbackPreventionSettings": null,
+           "CharacterSetSettings": null,
+           "FailTaskWhenCleanTaskResourceFailed": false,
+           "ChangeProcessingTuning": {
+               "StatementCacheSize": 50,
+               "CommitTimeout": 1,
+               "BatchApplyPreserveTransaction": true,
+               "BatchApplyTimeoutMin": 1,
+               "BatchSplitSize": 0,
+               "BatchApplyTimeoutMax": 30,
+               "MinTransactionSize": 1000,
+               "MemoryKeepTime": 60,
+               "BatchApplyMemoryLimit": 500,
+               "MemoryLimitTotal": 1024
+           },
+           "ChangeProcessingDdlHandlingPolicy": {
+               "HandleSourceTableDropped": true,
+               "HandleSourceTableTruncated": true,
+               "HandleSourceTableAltered": true
+           }
+       }
+      SourceEndpointArn: !Ref OracleSourceEndpoint
+      TargetEndpointArn: !Ref PostgreSQLTargetEndpoint
+      TableMappings: >-
+        {
+            "rules": [
+                {
+                    "rule-type": "selection",
+                    "rule-id": "1",
+                    "rule-name": "1",
+                    "object-locator": {
+                        "schema-name": "SPORTS",
+                        "table-name": "TEST_TBL_2"
+                    },
+                    "rule-action": "include"
+                },
+                {
+                    "rule-type": "transformation",
+                    "rule-id": "2",
+                    "rule-name": "2",
+                    "rule-action": "add-column",
+                    "rule-target": "column",
+                    "object-locator": {
+                        "schema-name": "SPORTS",
+                        "table-name": "TEST_TBL_2"
+                    },
+                    "value": "t_col2_tmp",
+                    "expression": "CASE LOWER(SUBSTR(HEX($T_COL2), 1, 8) || '-' || SUBSTR(HEX($T_COL2), 9, 4) || '-' || SUBSTR(HEX($T_COL2), 13, 4) || '-' || SUBSTR(HEX($T_COL2), 17, 4) || '-' || SUBSTR(HEX($T_COL2), 21, 12)) WHEN '----' THEN NULL ELSE LOWER(SUBSTR(HEX($T_COL2), 1, 8) || '-' || SUBSTR(HEX($T_COL2), 9, 4) || '-' || SUBSTR(HEX($T_COL2), 13, 4) || '-' || SUBSTR(HEX($T_COL2), 17, 4) || '-' || SUBSTR(HEX($T_COL2), 21, 12)) END",
+                    "data-type": {
+                        "type": "string",
+                        "length": 60
+                    }
+                },
+                {
+                    "rule-type": "transformation",
+                    "rule-id": "3",
+                    "rule-name": "3",
+                    "rule-target": "schema",
+                    "object-locator": {
+                        "schema-name": "%"
+                    },
+                    "rule-action": "convert-lowercase"
+                },
+                {
+                    "rule-type": "transformation",
+                    "rule-id": "4",
+                    "rule-name": "4",
+                    "rule-target": "table",
+                    "object-locator": {
+                        "schema-name": "%",
+                        "table-name": "%"
+                    },
+                    "rule-action": "convert-lowercase"
+                },
+                {
+                    "rule-type": "transformation",
+                    "rule-id": "5",
+                    "rule-name": "5",
+                    "rule-target": "column",
+                    "object-locator": {
+                        "schema-name": "%",
+                        "table-name": "%",
+                        "column-name": "%"
+                    },
+                    "rule-action": "convert-lowercase"
+                }
+            ]
+        }
+Outputs:
+  SessionManagerUrl:
+    Description: Session Manager Console
+    Value: !Sub https://${AWS::Region}.console.aws.amazon.com/systems-manager/session-manager/start-session?region=${AWS::Region}
+  OracleEndpointAddress:
+    Description: Full connection endpoint for the database primary instance
+    Value: !Sub '${RdsOracle.Endpoint.Address}:${RdsOracle.Endpoint.Port}/${DatabaseName}'
+    Export:
+      Name: !Sub '${AWS::StackName}-OracleEndpointAddress'
+  PostgreSQLEndpointAddress:
+    Description: Full connection endpoint for the database read replica
+    Value: !Sub '${RdsPostgreSQL.Endpoint.Address}:${RdsPostgreSQL.Endpoint.Port}/${DatabaseName}'
+    Export:
+      Name: !Sub '${AWS::StackName}-PostgreSQLEndpointAddress'
+  Ec2SecurityGroup:
+    Description: Security group for EC2 and replication instance
+    Value: !GetAtt SecurityGroupDefault.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}-Ec2SecurityGroup'
