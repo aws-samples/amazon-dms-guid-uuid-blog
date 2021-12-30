@@ -1,11 +1,6 @@
-## My Project
+## Transform column content and data type using AWS DMS
 
-TODO: Fill this README out!
-
-Be sure to:
-
-* Change the title in this README
-* Edit your repository description on GitHub
+This repository contains sample scripts for using Amazon RDS for Oracle with AWS Database Migration Service to convert Oracle RAW data type containing GUID data to UUID data type on PostgreSQL compatible target. These scripts were written to accompany the AWS Database Blog post: [Transform column content and data type using AWS DMS](<link-to-glob>).
 
 ## Security
 
@@ -14,4 +9,3 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 ## License
 
 This library is licensed under the MIT-0 License. See the LICENSE file.
-
