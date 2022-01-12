@@ -95,3 +95,4 @@ GRANT READ ON DIRECTORY ARCHIVELOG_DIR TO &1;
 
 /* Configure adequate retention for archived redo log*/
 EXEC rdsadmin.rdsadmin_util.set_configuration('archivelog retention hours',24);
+
