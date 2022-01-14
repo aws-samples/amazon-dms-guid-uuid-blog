@@ -43,17 +43,19 @@ Parameters:
     Type: String
     Description: Database engine version
     AllowedValues:
-    - '19.0.0.0.ru-2019-07.rur-2019-07.r1' # aws rds describe-db-engine-versions --engine postgres --query 'DBEngineVersions[].EngineVersion'
-    - '19.0.0.0.ru-2019-10.rur-2019-10.r1'
-    - '19.0.0.0.ru-2020-01.rur-2020-01.r1'
-    - '19.0.0.0.ru-2020-04.rur-2020-04.r1'
-    - '19.0.0.0.ru-2020-07.rur-2020-07.r1'
-    - '19.0.0.0.ru-2020-10.rur-2020-10.r1'
-    - '19.0.0.0.ru-2021-01.rur-2021-01.r1'
-    - '19.0.0.0.ru-2021-01.rur-2021-01.r2'
-    - '19.0.0.0.ru-2021-04.rur-2021-04.r1'
-    - '19.0.0.0.ru-2021-07.rur-2021-07.r1'
-    Default: 19.0.0.0.ru-2021-07.rur-2021-07.r1
+    - "19.0.0.0.ru-2019-07.rur-2019-07.r1" # aws rds describe-db-engine-versions --engine oracle-se2 --query 'DBEngineVersions[].EngineVersion'
+    - "19.0.0.0.ru-2019-10.rur-2019-10.r1"
+    - "19.0.0.0.ru-2020-01.rur-2020-01.r1"
+    - "19.0.0.0.ru-2020-04.rur-2020-04.r1"
+    - "19.0.0.0.ru-2020-07.rur-2020-07.r1"
+    - "19.0.0.0.ru-2020-10.rur-2020-10.r1"
+    - "19.0.0.0.ru-2021-01.rur-2021-01.r1"
+    - "19.0.0.0.ru-2021-01.rur-2021-01.r2"
+    - "19.0.0.0.ru-2021-04.rur-2021-04.r1"
+    - "19.0.0.0.ru-2021-07.rur-2021-07.r1"
+    - "19.0.0.0.ru-2021-10.rur-2021-10.r1"
+
+    Default: 19.0.0.0.ru-2021-10.rur-2021-10.r1
   PostgreSQLDBVersion:
     Type: String
     Description: Database engine version
@@ -648,9 +650,9 @@ Resources:
       StorageEncrypted: true
       PubliclyAccessible: false
       DBInstanceClass: !Ref DBInstanceClass
-      Engine : oracle-ee
+      Engine : oracle-se2
       EngineVersion: !Ref OracleDBVersion
-      LicenseModel : bring-your-own-license      
+      LicenseModel : license-included    
       MasterUsername: !Ref DBUser
       MasterUserPassword: !Ref DBPassword
       DeletionProtection: false
