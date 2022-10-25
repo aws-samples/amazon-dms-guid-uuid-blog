@@ -652,6 +652,8 @@ Resources:
   # Database resources
   RdsOracle:
     Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete 
     Properties:
       DBName: !Ref DatabaseName
       DBInstanceIdentifier: !Sub '${AWS::StackName}-ora-instance'
@@ -676,6 +678,8 @@ Resources:
     DeletionPolicy: Snapshot
   RdsPostgreSQL:
     Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete 
     Properties:
       DBName: !Ref DatabaseName
       DBInstanceIdentifier: !Sub '${AWS::StackName}-pgs-instance'
