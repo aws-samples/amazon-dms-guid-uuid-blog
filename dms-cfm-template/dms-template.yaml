@@ -54,8 +54,9 @@ Parameters:
     - "19.0.0.0.ru-2021-04.rur-2021-04.r1"
     - "19.0.0.0.ru-2021-07.rur-2021-07.r1"
     - "19.0.0.0.ru-2021-10.rur-2021-10.r1"
-
-    Default: 19.0.0.0.ru-2021-10.rur-2021-10.r1
+    - "19.0.0.0.ru-2022-01.rur-2022-01.r1"
+    - "19.0.0.0.ru-2022-04.rur-2022-04.r1"
+    Default: 19.0.0.0.ru-2022-04.rur-2022-04.r1
   PostgreSQLDBVersion:
     Type: String
     Description: Database engine version
@@ -70,8 +71,16 @@ Parameters:
     - '13.1'
     - '13.2'
     - '13.3'
-    - '13.4'    
-    Default: 13.4   
+    - '13.4'
+    - '13.5'
+    - '13.6'
+    - '13.7'
+    - '13.8'
+    - '14.1'
+    - '14.2'
+    - '14.3'
+    - '14.4'
+    Default: 14.4   
   DmsEngineVersion:
     Type: String
     Description: Dms engine version
@@ -79,7 +88,8 @@ Parameters:
     - '3.4.3'
     - '3.4.5'
     - '3.4.6'
-    Default: 3.4.6  
+    - '3.4.7'
+    Default: 3.4.7  
   VpcCidr:
     Description: VPC IP range
     Type: String
@@ -174,11 +184,11 @@ Parameters:
   OracleClientUrl:
     Description: URL for downloading Oracle client tools
     Type: String
-    Default: https://download.oracle.com/otn_software/linux/instantclient/211000/oracle-instantclient-basic-21.1.0.0.0-1.x86_64.rpm
+    Default: https://download.oracle.com/otn_software/linux/instantclient/218000/oracle-instantclient-basic-21.8.0.0.0-1.x86_64.rpm
   SqlPlusUrl:
     Description: URL for downloading SQLPlus client tools
     Type: String
-    Default: https://download.oracle.com/otn_software/linux/instantclient/211000/oracle-instantclient-sqlplus-21.1.0.0.0-1.x86_64.rpm
+    Default: https://download.oracle.com/otn_software/linux/instantclient/218000/oracle-instantclient-sqlplus-21.8.0.0.0-1.x86_64.rpm
   DmsReplicationInstanceIdentifier:
     NoEcho: false
     Default: sports-rep-instance
